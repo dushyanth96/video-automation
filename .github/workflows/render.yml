@@ -6,9 +6,13 @@ on:
     types: [render-video]
   workflow_dispatch:
     inputs:
-      idea_json:
-        description: '{"topic":"...","pillar":"Pillar 1"}'
+      topic:
+        description: 'Video topic (plain text, no quotes needed)'
         required: true
+      pillar:
+        description: 'Pillar 1 | Pillar 2 | Pillar 3'
+        required: false
+        default: 'Pillar 1'
       job_id:
         description: 'job id (YYYY-MM-DD-N)'
         required: true
@@ -34,10 +38,21 @@ jobs:
           NVIDIA_IDEATE_MODEL: ${{ secrets.NVIDIA_IDEATE_MODEL }}
         run: |
           JOB="${{ github.event.client_payload.job_id || inputs.job_id }}"
-          IDEA='${{ github.event.client_payload.idea_json || inputs.idea_json }}'
           mkdir -p scripts seo renders
-          echo "$IDEA" > scripts/$JOB.idea.json
-          python -m pipeline.expand_script --idea "$IDEA" --out scripts/$JOB.json
+          python -c "
+          import json
+          payload = '''${{ toJSON(github.event.client_payload) }}'''
+          try:
+              cp = json.loads(payload) if payload.strip() else {}
+          except Exception:
+              cp = {}
+          cp = cp or {}
+          idea = {'topic': '''${{ inputs.topic }}''' or cp.get('topic', ''),
+                  'pillar': '''${{ inputs.pillar }}''' or cp.get('pillar', 'Pillar 1')}
+          open('scripts/$JOB.idea.json', 'w').write(json.dumps(idea))
+          print('IDEA:', json.dumps(idea)[:150])
+          "
+          python -m pipeline.expand_script --idea "@scripts/$JOB.idea.json" --out scripts/$JOB.json
           python -m pipeline.seo --script scripts/$JOB.json --out seo/$JOB.json
           echo "JOB_ID=$JOB" >> $GITHUB_ENV
       - name: Render 1080x1920
