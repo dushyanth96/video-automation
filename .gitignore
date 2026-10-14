@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets — never commit
+.env
+ideas/
+scripts/
+seo/
+renders/
+
+# Pipeline outputs
+temp/
+output/
+*.mp4
+!background/gameplay.mp4

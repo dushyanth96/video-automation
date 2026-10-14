@@ -1,0 +1,4 @@
+# Paste viral Instagram Reel URLs or notes here (one per line).
+# pipeline/ideate.py reads this and asks the LLM to remix them into your niche.
+# Example:
+# https://www.instagram.com/reel/XXXX/ — "POV: junior dev uses MCP to ship auth in 5 min"

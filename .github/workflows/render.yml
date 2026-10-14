@@ -1,0 +1,68 @@
+name: render-video
+# Triggered by Cloudflare Worker when you tap Select_N in Telegram.
+# Fresh run per video => approval can wait days, no 6h-timeout risk.
+on:
+  repository_dispatch:
+    types: [render-video]
+  workflow_dispatch:
+    inputs:
+      idea_json:
+        description: '{"topic":"...","pillar":"Pillar 1"}'
+        required: true
+      job_id:
+        description: 'job id (YYYY-MM-DD-N)'
+        required: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Cache RVC models
+        uses: actions/cache@v4
+        with:
+          path: models/
+          key: rvc-models-v1
+      - run: pip install -e . 2>/dev/null || pip install edge-tts pillow imageio-ffmpeg python-dotenv requests boto3
+      - name: Build script + SEO
+        env:
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          NVIDIA_SCRIPT_MODEL: ${{ secrets.NVIDIA_SCRIPT_MODEL }}
+          NVIDIA_IDEATE_MODEL: ${{ secrets.NVIDIA_IDEATE_MODEL }}
+        run: |
+          JOB="${{ github.event.client_payload.job_id || inputs.job_id }}"
+          IDEA='${{ github.event.client_payload.idea_json || inputs.idea_json }}'
+          mkdir -p scripts seo renders
+          echo "$IDEA" > scripts/$JOB.idea.json
+          python -m pipeline.expand_script --idea "$IDEA" --out scripts/$JOB.json
+          python -m pipeline.seo --script scripts/$JOB.json --out seo/$JOB.json
+          echo "JOB_ID=$JOB" >> $GITHUB_ENV
+      - name: Render 1080x1920
+        run: |
+          python generate_dialogue_video.py --script scripts/$JOB_ID.json --output renders/$JOB_ID.mp4
+      - name: Upload to R2 (public watch URL)
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+        run: |
+          URL=$(python -m pipeline.r2 upload renders/$JOB_ID.mp4 renders/$JOB_ID.mp4)
+          echo "VIDEO_URL=$URL" >> $GITHUB_ENV
+      - name: Telegram approval request
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -c "
+          from pipeline.notify_telegram import send_approval
+          import os
+          send_approval(os.environ['VIDEO_URL'], 'seo/${{ env.JOB_ID }}.json', 'scripts/${{ env.JOB_ID }}.json', '${{ env.JOB_ID }}')
+          "
+      - uses: actions/upload-artifact@v4
+        with: { name: render-${{ env.JOB_ID }}, path: "renders/\nseo/\nscripts/" }

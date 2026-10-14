@@ -1,0 +1,16 @@
+{
+  "topic": "AI agents built a SaaS in 10 minutes — are junior devs cooked?",
+  "pillar": "Pillar 1",
+  "dialogue": [
+    { "speaker": "Leo", "text": "Yo Alex! AI agents built a full SaaS app in ten minutes!" },
+    { "speaker": "Leo", "text": "Are junior devs totally cooked now?" },
+    { "speaker": "Alex", "text": "Relax Leo! Typing syntax is dead, systems thinking is not." },
+    { "speaker": "Leo", "text": "Wait, what does that even mean?" },
+    { "speaker": "Alex", "text": "AI spits boilerplate, but can't architect production databases!" },
+    { "speaker": "Leo", "text": "Bro, so what should we learn in 2026?" },
+    { "speaker": "Alex", "text": "Vector DBs, local LLMs, and MCP tool calling." },
+    { "speaker": "Alex", "text": "I put the full roadmap plus templates in the bio link!" },
+    { "speaker": "Leo", "text": "So I can just prompt my way to placements?" },
+    { "speaker": "Alex", "text": "Sure, and I can microwave my way to Michelin star!" }
+  ]
+}

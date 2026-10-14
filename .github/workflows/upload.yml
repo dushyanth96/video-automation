@@ -1,0 +1,56 @@
+name: upload-video
+# Triggered by Worker on Upload-Now / schedule cron. Separate run => no waiting-timeout.
+on:
+  repository_dispatch:
+    types: [upload-video]
+  workflow_dispatch:
+    inputs:
+      job_id: { description: 'job id', required: true }
+      video_key: { description: 'R2 key e.g. renders/2026-10-14-1.mp4', required: true }
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install python-dotenv requests boto3 google-api-python-client google-auth-httplib2 google-auth-oauthlib
+      - name: Download from R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+        run: |
+          KEY="${{ github.event.client_payload.video_key || inputs.video_key }}"
+          JOB="${{ github.event.client_payload.job_id || inputs.job_id }}"
+          echo "JOB_ID=$JOB" >> $GITHUB_ENV
+          echo "VIDEO_KEY=$KEY" >> $GITHUB_ENV
+          python -c "
+          import os, boto3
+          ep = os.environ.get('R2_ENDPOINT') or f\"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com\"
+          s3 = boto3.client('s3', endpoint_url=ep, aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'], aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'])
+          s3.download_file(os.environ['R2_BUCKET'], '$KEY'.replace(chr(34),''), 'final.mp4')
+          print('downloaded')
+          "
+      - name: Upload YT Shorts + IG Reel
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          META_LONG_LIVED_TOKEN: ${{ secrets.META_LONG_LIVED_TOKEN }}
+          IG_BUSINESS_ID: ${{ secrets.IG_BUSINESS_ID }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          SEO="seo/$JOB_ID.json"
+          [ -f "$SEO" ] || SEO=""
+          YT_URL=$(python -m pipeline.upload_yt --video final.mp4 ${SEO:+--seo $SEO})
+          echo "YT=$YT_URL"
+          python -m pipeline.upload_ig --video-url "$R2_PUBLIC_URL/$VIDEO_KEY" ${SEO:+--seo $SEO} || echo "IG skipped/failed"
+          python -c "from pipeline.notify_telegram import send_posted; send_posted('$YT_URL','see logs')"

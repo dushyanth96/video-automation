@@ -1,0 +1,31 @@
+name: daily-ideate (5AM IST)
+on:
+  schedule:
+    - cron: "30 23 * * *"  # 05:00 IST (23:30 UTC previous day)
+  workflow_dispatch:
+    inputs:
+      post_telegram:
+        description: "Send to Telegram?"
+        default: "true"
+
+jobs:
+  ideate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install python-dotenv requests
+      - name: Generate 5 ideas
+        env:
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          NVIDIA_IDEATE_MODEL: ${{ secrets.NVIDIA_IDEATE_MODEL }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          DAY=$(TZ=Asia/Kolkata date +%F)
+          python -m pipeline.ideate --out ideas/$DAY.json ${{ inputs.post_telegram != 'false' && '--post-telegram' || '' }}
+      - uses: actions/upload-artifact@v4
+        with: { name: ideas, path: ideas/ }
