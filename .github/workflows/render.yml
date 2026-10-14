@@ -65,4 +65,9 @@ jobs:
           send_approval(os.environ['VIDEO_URL'], 'seo/${{ env.JOB_ID }}.json', 'scripts/${{ env.JOB_ID }}.json', '${{ env.JOB_ID }}')
           "
       - uses: actions/upload-artifact@v4
-        with: { name: render-${{ env.JOB_ID }}, path: "renders/\nseo/\nscripts/" }
+        with:
+          name: render-${{ env.JOB_ID }}
+          path: |
+            renders/
+            seo/
+            scripts/
