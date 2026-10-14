@@ -32,7 +32,9 @@ jobs:
           echo "VIDEO_KEY=$KEY" >> $GITHUB_ENV
           python -c "
           import os, boto3
-          ep = os.environ.get('R2_ENDPOINT') or f\"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com\"
+          ep = os.environ.get('R2_ENDPOINT', '')
+          if not ep or '<' in ep or '://' not in ep:
+              ep = f\"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com\"
           s3 = boto3.client('s3', endpoint_url=ep, aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'], aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'])
           s3.download_file(os.environ['R2_BUCKET'], '$KEY'.replace(chr(34),''), 'final.mp4')
           print('downloaded')

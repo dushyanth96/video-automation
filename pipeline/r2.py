@@ -7,8 +7,13 @@ try:
 except Exception:
     pass
 
+def resolve_endpoint(account: str, endpoint: str) -> str:
+    if endpoint and "<" not in endpoint and "://" in endpoint:
+        return endpoint
+    return f"https://{account}.r2.cloudflarestorage.com"
+
 def cfg():
-    return {
+    c = {
         "account": os.getenv("R2_ACCOUNT_ID", ""),
         "key": os.getenv("R2_ACCESS_KEY_ID", ""),
         "secret": os.getenv("R2_SECRET_ACCESS_KEY", ""),
@@ -16,6 +21,8 @@ def cfg():
         "endpoint": os.getenv("R2_ENDPOINT", ""),
         "public": os.getenv("R2_PUBLIC_URL", "").rstrip("/"),
     }
+    c["endpoint"] = resolve_endpoint(c["account"], c["endpoint"])
+    return c
 
 def main():
     ap = argparse.ArgumentParser()
@@ -26,7 +33,7 @@ def main():
     c = cfg()
     if not (c["account"] and c["key"] and c["secret"]):
         sys.exit("R2 keys missing. Fill .env (see README section 2).")
-    endpoint = c["endpoint"] or f"https://{c['account']}.r2.cloudflarestorage.com"
+    endpoint = c["endpoint"]
     try:
         import boto3
         s3 = boto3.client("s3", endpoint_url=endpoint,
