@@ -51,10 +51,14 @@ def main():
 
     script = {}
     for attempt in range(args.retries + 1):
-        raw = chat(script_model(), [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Write the script for: {json.dumps(idea)}. JSON only."},
-        ], temperature=0.5, max_tokens=3500)
+        try:
+            raw = chat(script_model(), [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"Write the script for: {json.dumps(idea)}. JSON only."},
+            ], temperature=0.5, max_tokens=3500)
+        except Exception as e:
+            print(f"[attempt {attempt}] LLM call failed: {e}", file=sys.stderr)
+            continue
         try:
             from pipeline.seo import extract_json
             script = extract_json(raw)
